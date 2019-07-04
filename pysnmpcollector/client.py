@@ -1,12 +1,12 @@
 from requests import get, post, put, delete, Response
-from requests.cookies import RequestsCookieJar
 from time import time
+
 cookie_key = 'snmpcollector-sess-my_instance_cookie'
 
 
 def _raise_for(r, type, path):
     """
-
+    Check response and raise if any errors - else retrieve relevant type of result (json or text)
     :param Response r:
     :param str type:
     :param str path:
@@ -21,6 +21,12 @@ def _raise_for(r, type, path):
 
 
 def _devcfg_url(id_=None, runtime=False):
+    """
+    Generate config path for a device
+    :param id_:
+    :param runtime:
+    :return:
+    """
     return '/api/cfg/snmpdevice{}{}'.format('' if not id_ else '/{}'.format(id_), '/runtime' if runtime else '')
 
 
@@ -93,21 +99,39 @@ class Client(object):
 
     def get_device_config(self, id_, runtime=False):
         """
-
-        :param id_:
-        :param runtime:
+        :param str id_:
+        :param bool runtime: retrieve from runtime or db
         :return:
+        :rtype: dict
         """
         return self._get(_devcfg_url(id_, runtime))
 
     def update_device_config(self, id_, config, runtime=False):
+        """
+        :param str id_:
+        :param bool runtime: retrieve from runtime or db
+        :return:
+        :rtype: dict
+        """
         path = _devcfg_url(id_, runtime)
         return _raise_for(put(self._url(path), json=config, cookies={cookie_key: self.cookie[0]}), 'PUT', path)
 
     def create_device_config(self, config, runtime=False):
+        """
+        :param str id_:
+        :param bool runtime: retrieve from runtime or db
+        :return:
+        :rtype: dict
+        """
         path = _devcfg_url(runtime=runtime)
         return _raise_for(post(self._url(path), json=config, cookies={cookie_key: self.cookie[0]}), 'POST', path)
 
     def delete_device_config(self, id_, runtime=False):
+        """
+        :param str id_:
+        :param bool runtime: retrieve from runtime or db
+        :return: 'deleted' if successfull
+        :rtype: str
+        """
         path = _devcfg_url(id_, runtime)
         return _raise_for(delete(self._url(path), cookies={cookie_key: self.cookie[0]}), 'DELETE', path)
