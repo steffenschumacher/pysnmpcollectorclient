@@ -1,5 +1,6 @@
 from requests import get, post, put, delete, Response
 from time import time
+from json import loads
 
 cookie_key = 'snmpcollector-sess-my_instance_cookie'
 
@@ -15,7 +16,8 @@ def _raise_for(r, type, path):
     if r.status_code != 200:
         raise Exception('Unable to {} {}: {}'.format(type, path, r.text))
     if r.headers['Content-Type'].find('json') > 0:
-        return r.json()
+        return loads(r.text)  # use stock json.loads, as older requests impl has issues with parsing
+                              # MeasurementGroups (
     else:
         return r.text
 
