@@ -3,7 +3,7 @@ import setuptools
 desc = "SnmpCollector python client"
 setuptools.setup(
     name="pysnmpcollector",
-    version="0.0.2",
+    version="0.0.3",
     author="Steffen Schumacher",
     author_email="stsmr@vestas.com",
     description=desc,

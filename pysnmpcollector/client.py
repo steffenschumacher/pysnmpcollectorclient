@@ -2,8 +2,6 @@ from requests import get, post, put, delete, Response
 from time import time
 from json import loads
 
-cookie_key = 'snmpcollector-sess-my_instance_cookie'
-
 
 def _raise_for(r, type, path):
     """
@@ -32,6 +30,35 @@ def _devcfg_url(id_=None, runtime=False):
     return '/api/cfg/snmpdevice{}{}'.format('' if not id_ else '/{}'.format(id_), '/runtime' if runtime else '')
 
 
+class Cookie(object):
+    prefix = 'snmpcollector-sess-'
+
+    def __init__(self, key, value, expiry=None):
+        self.key = key
+        self.value = value
+        self.expiry = expiry or time()+3600
+
+    @classmethod
+    def harvest(cls, r: Response):
+        cookie = r.cookies.get(f"{cls.prefix}my_instance_cookie")
+        if cookie:
+            return cls(f"{cls.prefix}my_instance_cookie", cookie)
+        else:
+            for name, cookie in r.cookies.items():
+                if name.startswith(cls.prefix):
+                    return cls(name, cookie)
+            else:
+                raise Exception(f"No cookie in response headers: {list(r.cookies.keys())}")
+
+    @property
+    def expired(self):
+        return self.expiry < time()
+
+    @property
+    def data(self):
+        return {self.key: self.value}
+
+
 class Client(object):
 
     def __init__(self, base_url, user, pw):
@@ -51,15 +78,13 @@ class Client(object):
         Login routine
         :return:
         """
-        if self.cookie is not None and self.cookie[1] < time():
+        if self.cookie and not self.cookie.expired:
             return
 
         r = post(self.base_url + '/login', data={'username': self.user, 'password': self.pw})
         if r.status_code != 200:
             raise Exception('Unable to login: {}'.format(r.text))
-        if cookie_key not in r.cookies:
-            raise Exception('No cookie in response headers: {}'.format(r.text))
-        self.cookie = (r.cookies[cookie_key], time()+3600)
+        self.cookie = Cookie.harvest(r)
 
     def _url(self, path):
         """
@@ -76,7 +101,7 @@ class Client(object):
         :param dict params:
         :rtype: Response
         """
-        return _raise_for(get(self._url(path), params, cookies={cookie_key: self.cookie[0]}), 'GET', path)
+        return _raise_for(get(self._url(path), params, cookies=self.cookie.data), 'GET', path)
 
     def reload_config(self):
         """
@@ -116,7 +141,7 @@ class Client(object):
         :rtype: dict
         """
         path = _devcfg_url(id_, runtime)
-        return _raise_for(put(self._url(path), json=config, cookies={cookie_key: self.cookie[0]}), 'PUT', path)
+        return _raise_for(put(self._url(path), json=config, cookies=self.cookie.data), 'PUT', path)
 
     def create_device_config(self, config, runtime=False):
         """
@@ -126,7 +151,7 @@ class Client(object):
         :rtype: dict
         """
         path = _devcfg_url(runtime=runtime)
-        return _raise_for(post(self._url(path), json=config, cookies={cookie_key: self.cookie[0]}), 'POST', path)
+        return _raise_for(post(self._url(path), json=config, cookies=self.cookie.data), 'POST', path)
 
     def delete_device_config(self, id_, runtime=False):
         """
@@ -136,4 +161,4 @@ class Client(object):
         :rtype: str
         """
         path = _devcfg_url(id_, runtime)
-        return _raise_for(delete(self._url(path), cookies={cookie_key: self.cookie[0]}), 'DELETE', path)
+        return _raise_for(delete(self._url(path), cookies=self.cookie.data), 'DELETE', path)
